@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wirtschaftsglobus Südamerika</title>
+<style>
+  :root {
+    --bg: #05070d;
+    --panel: rgba(12, 16, 28, 0.82);
+    --line: rgba(255, 255, 255, 0.12);
+    --text: #eef1f7;
+    --muted: #9aa3b5;
+    --accent: #f5b041;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  #globe { position: fixed; inset: 0; }
+
+  .glass { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+
+  /* Kopf mit Kennzahl-Auswahl */
+  #head { position: fixed; top: 16px; left: 16px; max-width: min(460px, calc(100vw - 32px)); padding: 14px 16px; }
+  #head h1 { margin: 0 0 2px; font-size: 19px; letter-spacing: .2px; }
+  #head p { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+  #chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  #chips button { border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--text);
+    border-radius: 999px; padding: 5px 11px; font: inherit; font-size: 13px; cursor: pointer; transition: background .15s, border-color .15s; }
+  #chips button:hover { background: rgba(255,255,255,.12); }
+  #chips button.on { background: var(--accent); border-color: var(--accent); color: #1a1205; font-weight: 600; }
+
+  /* Jahres-Schalter */
+  #jahre { display: flex; margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  #jahre button { flex: 1; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--text);
+    padding: 6px 0; font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; cursor: pointer; }
+  #jahre button:last-child { border-right: 0; }
+  #jahre button:hover { background: rgba(255,255,255,.08); }
+  #jahre button.on { background: rgba(255,255,255,.9); color: #0b0f19; font-weight: 700; }
+
+  /* Was war los? */
+  #ereignis { position: fixed; top: 252px; left: 16px; width: min(460px, calc(100vw - 32px)); padding: 12px 16px; font-size: 13px; }
+  #ereignis b { font-size: 12px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+  #ereignis ul { margin: 6px 0 0; padding-left: 18px; }
+  #ereignis li { margin: 2px 0; }
+  .strich { display: inline-block; width: 22px; height: 6px; vertical-align: middle; margin-right: 4px; border-radius: 3px;
+    background: repeating-linear-gradient(90deg, #0b0e18 0 5px, transparent 5px 8px) center / 100% 3px no-repeat, #f3c56b; }
+  body.offen #ereignis { display: none; }
+
+  /* Legende */
+  #legend { position: fixed; left: 16px; bottom: 16px; padding: 10px 14px; width: 260px; font-size: 12px; }
+  #legend .bar { height: 10px; border-radius: 5px; margin: 6px 0 4px; }
+  #legend .ends { display: flex; justify-content: space-between; color: var(--muted); }
+  #legend .hint { color: var(--muted); margin-top: 6px; }
+
+  /* Länder-Steckbrief */
+  #info { position: fixed; top: 16px; right: 16px; bottom: 16px; width: 360px; padding: 18px 18px 14px;
+    overflow-y: auto; transform: translateX(calc(100% + 24px)); transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+  #info.open { transform: none; }
+  #info .close { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border-radius: 50%;
+    border: 1px solid var(--line); background: transparent; color: var(--text); font-size: 18px; cursor: pointer; }
+  #info h2 { margin: 0; font-size: 24px; }
+  #info .sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+  .hero { padding: 12px 14px; border-radius: 10px; background: rgba(245,176,65,.12); border: 1px solid rgba(245,176,65,.35); margin-bottom: 14px; }
+  .hero .lab { font-size: 12px; color: var(--muted); }
+  .hero .val { font-size: 28px; font-weight: 700; color: var(--accent); }
+  .hero .rank { font-size: 12px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .cell { padding: 8px 10px; border-radius: 9px; background: rgba(255,255,255,.04); border: 1px solid var(--line); cursor: pointer; }
+  .cell:hover { background: rgba(255,255,255,.09); }
+  .cell .lab { font-size: 11px; color: var(--muted); }
+  .cell .val { font-size: 16px; font-weight: 600; }
+  h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 6px 0 8px; font-weight: 600; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .tags span { padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,.07); font-size: 13px; }
+  .rankrow { display: grid; grid-template-columns: 88px 1fr 64px; gap: 8px; align-items: center; font-size: 12px; margin: 3px 0; cursor: pointer; }
+  .rankrow .track { height: 8px; background: rgba(255,255,255,.06); border-radius: 4px; overflow: hidden; }
+  .rankrow .fill { height: 100%; border-radius: 4px; }
+  .rankrow .num { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .rankrow.me { color: var(--accent); font-weight: 600; }
+  .rankrow.me .num { color: var(--accent); }
+  .rankrow.leer { opacity: .45; }
+  .damals { font-size: 13px; padding: 8px 10px; border-left: 3px solid var(--accent); background: rgba(255,255,255,.04); border-radius: 0 8px 8px 0; margin-bottom: 14px; }
+  .note { font-size: 11px; color: var(--muted); margin-top: 12px; }
+
+  /* Hover-Schild am Mauszeiger */
+  .tip { background: rgba(10,14,24,.9); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; font-size: 13px; }
+  .tip b { color: var(--accent); }
+
+  #source { position: fixed; right: 16px; bottom: 10px; font-size: 11px; color: var(--muted); pointer-events: none; }
+  #info.open ~ #source { display: none; }
+
+  @media (max-width: 720px) {
+    #head { padding: 10px 12px; }
+    #head h1 { font-size: 16px; }
+    #head p { display: none; }
+    #legend { display: none; }
+    #ereignis { display: none; }
+    #info { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 58vh;
+      transform: translateY(calc(100% + 24px)); }
+    #info.open { transform: none; }
+  }
+</style>
+</head>
+<body>
+<div id="globe"></div>
+
+<div id="head" class="glass">
+  <h1>Wirtschaft in Südamerika</h1>
+  <p>Höhe und Farbe zeigen die gewählte Kennzahl. Ziehen dreht, Scrollen zoomt, Klick öffnet den Steckbrief.</p>
+  <div id="chips"></div>
+  <div id="jahre"></div>
+</div>
+
+<div id="ereignis" class="glass"></div>
+
+<div id="legend" class="glass">
+  <div id="legTitle"></div>
+  <div class="bar" id="legBar"></div>
+  <div class="ends"><span id="legMin"></span><span id="legMax"></span></div>
+  <div class="hint" id="legHint"></div>
+</div>
+
+<aside id="info" class="glass" aria-live="polite"></aside>
+<div id="source">Daten: Weltbank (WDI), Lücken: IWF (WEO)<!-- rechtliches --><span class="erik-recht"> · <a href="https://erikdahlmann.github.io/impressum.html">Impressum</a> · <a href="https://erikdahlmann.github.io/datenschutz.html">Datenschutz</a></span><style>.erik-recht{pointer-events:auto}.erik-recht a{color:inherit}</style><!-- /rechtliches --></div>
+
+<script src="lib/globe.gl.min.js"></script>
+<script src="lib/suedamerika.js"></script>
+<script src="lib/texturen.js"></script>
+<script src="lib/zeitreihe.js"></script>
+<script>
+// ---------- Feste Angaben je Land; Kennzahlen je Jahr kommen aus lib/zeitreihe.js ----------
+// Daten: Weltbank WDI (BIP in Preisen von 2015), Lücken bei der Inflation: IWF World Economic Outlook.
+const JAHRE = ZEITREIHE.jahre;            // [1980, 1990, 2000, 2010, 2024]
+const LAENDER = {
+  ARG: { name: 'Argentinien', hs: 'Buenos Aires', lat: -35, lng: -64.5, ex: ['Sojaschrot', 'Mais', 'Rohöl'],
+         wg: ['Peso Ley', 'Austral', 'Peso', 'Peso', 'Peso'],
+         politik: ['Militärdiktatur (1976–1983)', 'Demokratie seit 1983, Präsident Menem', '', '', 'Präsident Milei, harter Sparkurs'] },
+  BOL: { name: 'Bolivien', hs: 'Sucre (Regierung: La Paz)', lat: -16.7, lng: -64.5, ex: ['Gold', 'Erdgas', 'Zink'],
+         wg: ['Peso boliviano', 'Boliviano', 'Boliviano', 'Boliviano', 'Boliviano'],
+         politik: ['Militärputsch im Juli 1980, Demokratie erst ab 1982', '', '', 'Präsident Morales, Erdgas verstaatlicht (2006)', ''] },
+  BRA: { name: 'Brasilien', hs: 'Brasília', lat: -10, lng: -52, ex: ['Sojabohnen', 'Rohöl', 'Eisenerz'],
+         wg: ['Cruzeiro', 'Cruzeiro', 'Real (seit 1994)', 'Real', 'Real'],
+         politik: ['Militärdiktatur (1964–1985)', 'Erster frei gewählter Präsident seit 1960', '', '', ''] },
+  CHL: { name: 'Chile', hs: 'Santiago de Chile', lat: -30, lng: -71, ex: ['Kupfer', 'Lithium', 'Lachs'],
+         wg: ['Peso', 'Peso', 'Peso', 'Peso', 'Peso'],
+         politik: ['Militärdiktatur unter Pinochet (1973–1990)', 'Seit März 1990 wieder Demokratie', '', '', ''] },
+  COL: { name: 'Kolumbien', hs: 'Bogotá', lat: 4, lng: -73, ex: ['Rohöl', 'Kohle', 'Kaffee'],
+         wg: ['Peso', 'Peso', 'Peso', 'Peso', 'Peso'],
+         politik: ['', 'Gewalt durch Drogenkartelle und Guerilla', '', '', 'Friedensvertrag mit der FARC (2016)'] },
+  ECU: { name: 'Ecuador', hs: 'Quito', lat: -1.5, lng: -78.3, ex: ['Rohöl', 'Garnelen', 'Bananen'],
+         wg: ['Sucre', 'Sucre', 'US-Dollar (seit 2000)', 'US-Dollar', 'US-Dollar'],
+         politik: ['Beansprucht ein großes Amazonasgebiet von Peru (gestrichelt)', 'Beansprucht ein großes Amazonasgebiet von Peru (gestrichelt)',
+                   'Friedensvertrag mit Peru 1998: Anspruch aufgegeben', '', ''] },
+  GUY: { name: 'Guyana', hs: 'Georgetown', lat: 5, lng: -58.9, ex: ['Rohöl', 'Gold', 'Reis'],
+         wg: ['Guyana-Dollar', 'Guyana-Dollar', 'Guyana-Dollar', 'Guyana-Dollar', 'Guyana-Dollar'],
+         politik: ['Autoritäre Regierung Burnham', '', '', '', 'Erdöl-Förderung seit 2019'] },
+  PRY: { name: 'Paraguay', hs: 'Asunción', lat: -23.3, lng: -58.4, ex: ['Sojabohnen', 'Strom (Wasserkraft)', 'Rindfleisch'],
+         wg: ['Guaraní', 'Guaraní', 'Guaraní', 'Guaraní', 'Guaraní'],
+         politik: ['Diktatur Stroessner (1954–1989)', 'Diktator Stroessner 1989 gestürzt', '', '', ''] },
+  PER: { name: 'Peru', hs: 'Lima', lat: -9.5, lng: -75, ex: ['Kupfer', 'Gold', 'Zink'],
+         wg: ['Sol', 'Inti', 'Nuevo Sol', 'Nuevo Sol', 'Sol'],
+         politik: ['Rückkehr zur Demokratie 1980', 'Präsident Fujimori, Kampf gegen den „Leuchtenden Pfad“', 'Fujimori flieht 2000 ins Ausland', '', ''] },
+  SUR: { name: 'Suriname', hs: 'Paramaribo', lat: 4.1, lng: -55.9, ex: ['Gold', 'Rohöl', 'Holz'],
+         wg: ['Suriname-Gulden', 'Suriname-Gulden', 'Suriname-Gulden', 'Suriname-Dollar (seit 2004)', 'Suriname-Dollar'],
+         politik: ['Militärputsch im Februar 1980 (Bouterse)', 'Erneuter Putsch im Dezember 1990', '', '', ''] },
+  URY: { name: 'Uruguay', hs: 'Montevideo', lat: -32.8, lng: -56, ex: ['Rindfleisch', 'Zellstoff', 'Sojabohnen'],
+         wg: ['Nuevo Peso', 'Nuevo Peso', 'Peso uruguayo', 'Peso uruguayo', 'Peso uruguayo'],
+         politik: ['Militärdiktatur (1973–1985)', '', '', '', ''] },
+  VEN: { name: 'Venezuela', hs: 'Caracas', lat: 7, lng: -66, ex: ['Rohöl', 'Gold', 'Methanol'],
+         wg: ['Bolívar', 'Bolívar', 'Bolívar', 'Bolívar fuerte (seit 2008)', 'Bolívar digital (seit 2021)'],
+         politik: ['Demokratie, Ölboom', 'Nach Ölpreisverfall: Unruhen (1989)', 'Präsident Chávez (seit 1999)', 'Präsident Chávez', 'Präsident Maduro, Wahl 2024 international angezweifelt'] },
+};
+const EREIGNISSE = {
+  1980: ['Militärdiktaturen in Argentinien, Brasilien, Chile, Uruguay, Paraguay und Bolivien.',
+         'Nach den Ölkrisen haben sich viele Staaten hoch im Ausland verschuldet.',
+         '<span class="strich"></span>Gestrichelt: Gebiet, das Ecuador bis 1998 von Peru beansprucht.'],
+  1990: ['Schuldenkrise der 1980er („verlorenes Jahrzehnt“): Viele Staaten sind ärmer als 1980.',
+         'Hyperinflation in Argentinien, Brasilien und Peru: Die Preise steigen um mehr als 1.000 % im Jahr.',
+         'Fast überall wieder Demokratie, Chile seit März 1990.',
+         '<span class="strich"></span>Ecuadors Anspruch auf peruanisches Amazonasgebiet besteht weiter.'],
+  2000: ['1998: Friedensvertrag zwischen Ecuador und Peru, die Grenze ist endgültig.',
+         'Ecuador ersetzt nach einer Bankenkrise seine Währung durch den US-Dollar.',
+         'Argentinien steckt in der Rezession, 2001 folgt der Staatsbankrott.'],
+  2010: ['Rohstoffboom: China kauft Soja, Kupfer, Erz und Erdöl.',
+         'Die Weltfinanzkrise 2008/09 trifft Südamerika nur kurz, viele Länder wachsen kräftig.',
+         'Argentiniens offizielle Inflationszahlen gelten als geschönt.'],
+  2024: ['Guyana fördert seit 2019 Erdöl und wächst schneller als fast jedes Land der Welt.',
+         'Argentinien: sehr hohe Inflation, harter Sparkurs der Regierung.',
+         'Venezuela: Die Wirtschaft ist seit 2013 um etwa drei Viertel geschrumpft und erholt sich langsam.'],
+};
+let jahrIdx = JAHRE.length - 1;
+const wert = (iso, key, j = jahrIdx) => ZEITREIHE.daten[iso][key][j];
+const hinweis = (iso, key, j = jahrIdx) => ZEITREIHE.hinweise[`${iso}.${key}.${j}`];
+const ALLE = Object.keys(LAENDER);
+
+const nf = (v, d = 1) => v.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+// Kennzahlen: Format, Skala (lin/log/signlog), Farbschema
+const KENNZAHLEN = {
+  kopf:  { lab: 'BIP pro Kopf', fmt: v => nf(v, 0) + ' $', scale: 'lin', pal: 'seq',
+           hint: 'Wert aller Güter und Dienstleistungen geteilt durch die Einwohnerzahl. In US-Dollar mit der Kaufkraft von 2015, damit man die Jahre vergleichen kann.' },
+  bip:   { lab: 'BIP gesamt', fmt: v => v >= 1000 ? nf(v / 1000, 2) + ' Bio. $' : nf(v, 1) + ' Mrd. $', scale: 'log', pal: 'seq',
+           hint: 'Wirtschaftsleistung des ganzen Landes in US-Dollar von 2015. Logarithmische Skala, sonst sieht man nur Brasilien.' },
+  ew:    { lab: 'Einwohner', fmt: v => nf(v, v < 10 ? 2 : 1) + ' Mio.', scale: 'log', pal: 'seq',
+           hint: 'Logarithmische Skala: jede Stufe ist ein Vielfaches.' },
+  wachs: { lab: 'Wachstum', fmt: v => (v > 0 ? '+' : '') + nf(v, 1) + ' %', scale: 'signlog', pal: 'div',
+           hint: 'Reale Veränderung des BIP gegenüber dem Vorjahr. Rot = Schrumpfen, Grün = Wachsen. Höhe: logarithmisch nach Betrag.' },
+  infl:  { lab: 'Inflation', fmt: v => nf(v, 1) + ' %', scale: 'signlog', pal: 'hot',
+           hint: 'Preissteigerung der Verbraucherpreise im Jahr. Logarithmische Skala.' },
+  alq:   { lab: 'Arbeitslosigkeit', fmt: v => nf(v, 1) + ' %', scale: 'lin', pal: 'hot',
+           hint: 'Anteil der Arbeitslosen an den Erwerbspersonen (Schätzung ILO). Werte gibt es erst ab 1991.' },
+};
+
+const PALETTEN = {
+  seq: ['#6b3fa0', '#4a78d0', '#2fb5a0', '#a3dc62', '#fbe56b'],
+  hot: ['#7a3f9e', '#b8408a', '#d9485f', '#f58b4c', '#fbd36b'],
+  div: ['#c0392b', '#e57f6b', '#d8d8d8', '#7cc98a', '#1e9e5a'],
+};
+
+function mix(a, b, t) {
+  const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [p(a), p(b)];
+  return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+function farbe(pal, t) {
+  const s = PALETTEN[pal], f = Math.max(0, Math.min(1, t)) * (s.length - 1), i = Math.min(Math.floor(f), s.length - 2);
+  return mix(s[i], s[i + 1], f - i);
+}
+const trans = (scale, v) => scale === 'log' ? Math.log10(v) : scale === 'signlog' ? Math.sign(v) * Math.log10(1 + Math.abs(v)) : v;
+
+// Normierung 0..1 über alle Jahre, damit Höhen zwischen den Jahren vergleichbar bleiben
+let aktiv = 'kopf', gewaehlt = null, hover = null;
+const alleWerte = key => ALLE.flatMap(i => ZEITREIHE.daten[i][key]).filter(v => v != null);
+function norm(key, v) {
+  const k = KENNZAHLEN[key], werte = alleWerte(key).map(x => trans(k.scale, x));
+  const lo = Math.min(...werte), hi = Math.max(...werte), x = trans(k.scale, v);
+  if (k.pal === 'div') return 0.5 + Math.max(-1, Math.min(1, v / 5)) / 2; // Farbe endet bei ±5 %
+  return (x - lo) / (hi - lo);
+}
+// Betrag 0..1 für Höhe und Balken (Wachstum: logarithmisch nach Betrag)
+function betrag(key, v) {
+  const k = KENNZAHLEN[key];
+  if (k.pal !== 'div') return norm(key, v);
+  const m = Math.max(...alleWerte(key).map(x => Math.abs(trans(k.scale, x))));
+  return Math.abs(trans(k.scale, v)) / m;
+}
+function hoehe(iso) {
+  const v = wert(iso, aktiv);
+  return v == null ? 0.004 : 0.012 + betrag(aktiv, v) * 0.12;
+}
+const capFarbe = iso => { const v = wert(iso, aktiv); return v == null ? '#5b6170' : farbe(KENNZAHLEN[aktiv].pal, norm(aktiv, v)); };
+const mitWert = key => ALLE.filter(i => wert(i, key) != null).sort((a, b) => wert(b, key) - wert(a, key));
+const zeige = (iso, key) => { const v = wert(iso, key); return v == null ? 'keine Daten' : KENNZAHLEN[key].fmt(v) + (hinweis(iso, key) ? '*' : ''); };
+
+// ---------- Globus ----------
+const features = window.SUEDAMERIKA.features;
+const globe = Globe()(document.getElementById('globe'))
+  .globeImageUrl(TEXTUREN.erde)
+  .bumpImageUrl(TEXTUREN.relief)
+  .backgroundImageUrl(TEXTUREN.himmel)
+  .atmosphereColor('#7fb8ff')
+  .atmosphereAltitude(0.18)
+  .polygonsData(features)
+  .polygonCapCurvatureResolution(5)
+  .polygonAltitude(f => hoehe(f.properties.iso) + (f === hover || f.properties.iso === gewaehlt ? 0.012 : 0))
+  .polygonCapColor(f => {
+    const c = capFarbe(f.properties.iso);
+    return f === hover || f.properties.iso === gewaehlt ? mix(c, '#ffffff', 0.35) : c;
+  })
+  .polygonSideColor(f => capFarbe(f.properties.iso) + 'b0')
+  .polygonStrokeColor(() => 'rgba(10,10,20,0.55)')
+  .polygonsTransitionDuration(700)
+  .polygonLabel(f => {
+    const iso = f.properties.iso;
+    return `<div class="tip">${LAENDER[iso].name} · ${JAHRE[jahrIdx]}<br>${KENNZAHLEN[aktiv].lab}: <b>${zeige(iso, aktiv)}</b></div>`;
+  })
+  .onPolygonHover(f => { hover = f; document.body.style.cursor = f ? 'pointer' : ''; aktualisieren(); })
+  .onPolygonClick(f => waehle(f.properties.iso))
+  .onGlobeClick(() => schliessen())
+  .labelsData(Object.entries(LAENDER).map(([iso, l]) => ({ iso, ...l })))
+  .labelLat(d => d.lat).labelLng(d => d.lng)
+  .labelText(d => d.name)
+  .labelAltitude(d => hoehe(d.iso) + 0.004)
+  .labelSize(d => (d.iso === 'BRA' ? 1.5 : 0.85))
+  .labelDotRadius(0)
+  .labelColor(() => 'rgba(255,255,255,0.92)')
+  .labelResolution(3)
+  .labelsTransitionDuration(700)
+  .onLabelClick(d => waehle(d.iso))
+  // Ecuadors Anspruch bis 1998 als gestrichelte Linie über Peru
+  .pathPoints(d => d.punkte)
+  .pathPointLat(p => p[0]).pathPointLng(p => p[1])
+  .pathPointAlt(() => hoehe('PER') + 0.005)
+  .pathColor(() => '#0b0e18')                  // dunkle Striche: auf allen Länderfarben gut sichtbar
+  .pathStroke(3.2)
+  .pathDashLength(0.014).pathDashGap(0.008).pathDashAnimateTime(0)
+  .pathTransitionDuration(700)
+  .pathLabel(() => '<div class="tip">Anspruch Ecuadors bis 1998<br>Rund 230.000 km² peruanisches Amazonasgebiet (vereinfacht)</div>');
+
+globe.controls().enableDamping = true;
+globe.controls().autoRotate = false;
+globe.pointOfView({ lat: -18, lng: -72, altitude: 1.75 }, 0);
+
+function groesse() { globe.width(innerWidth).height(innerHeight); }
+addEventListener('resize', groesse); groesse();
+
+// ---------- Oberfläche ----------
+const chips = document.getElementById('chips');
+Object.entries(KENNZAHLEN).forEach(([key, k]) => {
+  const b = document.createElement('button');
+  b.textContent = k.lab; b.dataset.key = key;
+  b.onclick = () => setzeKennzahl(key);
+  chips.appendChild(b);
+});
+
+const jahre = document.getElementById('jahre');
+JAHRE.forEach((j, idx) => {
+  const b = document.createElement('button');
+  b.textContent = idx === JAHRE.length - 1 ? j + ' (aktuell)' : j;
+  b.onclick = () => setzeJahr(idx);
+  jahre.appendChild(b);
+});
+function setzeJahr(idx) {
+  jahrIdx = idx;
+  jahre.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', i === idx));
+  document.getElementById('ereignis').innerHTML = `<b>${JAHRE[idx]}: Was war los?</b><ul>${EREIGNISSE[JAHRE[idx]].map(e => `<li>${e}</li>`).join('')}</ul>`;
+  setzeKennzahl(aktiv);
+}
+
+function setzeKennzahl(key) {
+  aktiv = key;
+  chips.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.key === key));
+  const k = KENNZAHLEN[key], werte = alleWerte(key);
+  document.getElementById('legTitle').textContent = k.lab + ' · Skala für alle Jahre gleich';
+  document.getElementById('legBar').style.background = `linear-gradient(90deg, ${PALETTEN[k.pal].join(',')})`;
+  if (k.pal === 'div') {
+    document.getElementById('legMin').textContent = '−5 % und weniger';
+    document.getElementById('legMax').textContent = '+5 % und mehr';
+  } else {
+    document.getElementById('legMin').textContent = k.fmt(Math.min(...werte));
+    document.getElementById('legMax').textContent = k.fmt(Math.max(...werte));
+  }
+  document.getElementById('legHint').textContent = k.hint;
+  aktualisieren();
+  if (gewaehlt) steckbrief(gewaehlt);
+}
+
+function aktualisieren() {
+  globe.polygonsData(features); // Funktionen neu auswerten
+  globe.labelsData(globe.labelsData());
+  const p = ZEITREIHE.anspruchEcuador;
+  globe.pathsData(JAHRE[jahrIdx] < 1998 ? [{ punkte: p }] : []);
+}
+
+const info = document.getElementById('info');
+function waehle(iso) {
+  gewaehlt = iso;
+  const l = LAENDER[iso];
+  // Land in die freie Mitte zwischen Kopf links und Steckbrief rechts, bei schmalem Bildschirm nach oben
+  const alt = iso === 'BRA' ? 1.5 : 1.1, breit = innerWidth > 720;
+  globe.pointOfView({ lat: l.lat - (breit ? 0 : alt * 14), lng: l.lng + (breit ? alt * 4 : 0), altitude: alt }, 1100);
+  document.body.classList.add('offen');
+  steckbrief(iso);
+  info.classList.add('open');
+  aktualisieren();
+}
+function schliessen() {
+  if (!gewaehlt) return;
+  gewaehlt = null; info.classList.remove('open'); document.body.classList.remove('offen');
+  globe.pointOfView({ lat: -18, lng: -72, altitude: 1.75 }, 1100);
+  aktualisieren();
+}
+addEventListener('keydown', e => { if (e.key === 'Escape') schliessen(); });
+
+function steckbrief(iso) {
+  const l = LAENDER[iso], k = KENNZAHLEN[aktiv], j = JAHRE[jahrIdx];
+  const zellen = Object.entries(KENNZAHLEN).filter(([key]) => key !== aktiv).map(([key, kz]) =>
+    `<div class="cell" data-key="${key}"><div class="lab">${kz.lab}</div><div class="val">${zeige(iso, key)}</div></div>`).join('');
+  const sortiert = mitWert(aktiv).concat(ALLE.filter(i => wert(i, aktiv) == null));
+  const balken = sortiert.map(i => {
+    const v = wert(i, aktiv);
+    if (v == null) return `<div class="rankrow leer" data-iso="${i}"><span>${LAENDER[i].name}</span><div class="track"></div><span class="num">–</span></div>`;
+    const n = norm(aktiv, v), breite = Math.max(3, betrag(aktiv, v) * 100);
+    return `<div class="rankrow ${i === iso ? 'me' : ''}" data-iso="${i}">
+      <span>${LAENDER[i].name}</span>
+      <div class="track"><div class="fill" style="width:${breite}%;background:${farbe(k.pal, n)}"></div></div>
+      <span class="num">${k.fmt(v)}</span></div>`;
+  }).join('');
+  const rangText = wert(iso, aktiv) == null ? 'Für dieses Jahr gibt es keinen Wert.'
+    : `Platz ${mitWert(aktiv).indexOf(iso) + 1} von ${mitWert(aktiv).length} (nach Größe sortiert)`;
+  const notizen = Object.keys(KENNZAHLEN).map(key => hinweis(iso, key) && `* ${KENNZAHLEN[key].lab}: ${hinweis(iso, key)}`).filter(Boolean);
+  const politik = l.politik[jahrIdx];
+  info.innerHTML = `
+    <button class="close" aria-label="Schließen">×</button>
+    <h2>${l.name} <span style="color:var(--muted);font-weight:400">${j}</span></h2>
+    <div class="sub">Hauptstadt: ${l.hs} · Währung ${j}: ${l.wg[jahrIdx]}</div>
+    ${politik ? `<div class="damals">${politik}</div>` : ''}
+    <div class="hero">
+      <div class="lab">${k.lab}</div>
+      <div class="val">${zeige(iso, aktiv)}</div>
+      <div class="rank">${rangText}</div>
+    </div>
+    <div class="grid">${zellen}</div>
+    <h3>Wichtigste Exportgüter heute</h3>
+    <div class="tags">${l.ex.map(e => `<span>${e}</span>`).join('')}</div>
+    <h3>${k.lab} ${j} im Vergleich</h3>
+    ${balken}
+    <div class="note">Quelle: Weltbank, World Development Indicators. BIP in US-Dollar von 2015. Werte gerundet.
+      ${notizen.map(n => '<br>' + n).join('')}
+      <br>Exportgüter: Überblick, ohne Rangfolge-Gewähr.</div>`;
+  info.querySelector('.close').onclick = schliessen;
+  info.querySelectorAll('.cell').forEach(c => c.onclick = () => setzeKennzahl(c.dataset.key));
+  info.querySelectorAll('.rankrow').forEach(r => r.onclick = () => waehle(r.dataset.iso));
+}
+
+setzeJahr(JAHRE.length - 1);
+</script>
+</body>
+</html>
